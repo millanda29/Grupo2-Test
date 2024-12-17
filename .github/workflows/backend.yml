@@ -1,0 +1,101 @@
+name: EC2 - Instancia Backend
+
+on:
+  push:
+    paths:
+      - 'backend/**'  # Ejecutar solo si hay cambios en la carpeta "backend"
+    branches:
+      - "main"  # Cambiado de master a main
+  pull_request:
+    paths:
+      - 'backend/**'  # Lo mismo para pull requests
+    branches:
+      - "main"  # Cambiado de master a main
+    
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout del código fuente
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Instalar dependencias necesarias (jq para manipulación JSON)
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      # 3. Obtener la versión más alta desde Docker Hub
+      - name: Get the highest version from DockerHub
+        id: get_version
+        run: |
+          # Consultar los tags existentes de la imagen en Docker Hub
+          response=$(curl -s https://hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/backend/tags/)
+          
+          # Filtrar los tags válidos y extraer solo los números
+          tags=$(echo $response | jq -r '.results[] | select(.name | test("^v[0-9]+\\.[0-9]+$")) | .name' | sed 's/^v//')
+
+          # Si no hay tags, empezar desde v1.0
+          if [ -z "$tags" ]; then
+            NEW_VERSION="v1.0"
+          else
+            # Obtener el tag más alto y extraer la parte mayor y menor
+            highest_version=$(echo "$tags" | sort -V | tail -n 1)
+            MAJOR=$(echo $highest_version | cut -d. -f1)
+            MINOR=$(echo $highest_version | cut -d. -f2)
+            # Incrementar la versión menor
+            NEW_MINOR=$((MINOR + 1))
+            NEW_VERSION="v${MAJOR}.${NEW_MINOR}"
+          fi
+          # Salida de la versión a usar
+          echo "next=$NEW_VERSION" >> $GITHUB_ENV
+
+      # 4. Log in to DockerHub
+      - name: Log in to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 5. Construir y subir la imagen Docker
+      - name: Build and push Docker image
+        run: |
+          NEW_VERSION=${{ env.next }}
+          docker build . --file Dockerfile \
+            --tag ${{ secrets.DOCKER_USERNAME }}/backend:$NEW_VERSION \
+            --tag ${{ secrets.DOCKER_USERNAME }}/backend:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/backend:$NEW_VERSION
+          docker push ${{ secrets.DOCKER_USERNAME }}/backend:latest
+
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      # 1. Conectar a EC2 y desplegar la aplicación
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            # Actualizar el sistema y Docker
+            sudo yum update -y
+            sudo yum install -y docker
+            sudo service docker start
+
+            # Pull de la última versión de la imagen
+            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/backend:latest
+
+            # Detener y remover contenedor si existe
+            sudo docker ps -q --filter "name=backend" | grep -q . && \
+            sudo docker stop backend && \
+            sudo docker rm backend || true
+
+            # Ejecutar el contenedor
+            sudo docker run -d --name backend -p 80:3000 ${{ secrets.DOCKER_USERNAME }}/backend:latest
