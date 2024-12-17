@@ -1,4 +1,4 @@
-const apiURL = "http://localhost:80/messages";
+const apiURL = "http://3.83.48.39:80/messages";
 const messagesList = document.getElementById("messages");
 
 // Enviar un nuevo mensaje
