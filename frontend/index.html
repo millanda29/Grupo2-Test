@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Colas - Mensajería</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Mensajería en tiempo real</h1>
+
+    <!-- Formulario para enviar mensajes -->
+    <div>
+      <input type="text" id="sender" placeholder="Remitente">
+      <input type="text" id="content" placeholder="Mensaje">
+      <button id="send">Enviar</button>
+    </div>
+
+    <!-- Área de mensajes -->
+    <h2>Cola de mensajes</h2>
+    <ul id="messages"></ul>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
