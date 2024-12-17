@@ -2,14 +2,9 @@ name: EC2 Instancia Frontend
 
 on:
   push:
-    paths:
-      - '/frontend/**'
     branches:
       - "main"
-    
   pull_request:
-    paths:
-      - '/frontend/**'
     branches:
       - "main"
 

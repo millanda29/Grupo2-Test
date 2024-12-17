@@ -2,21 +2,19 @@ name: EC2 - Instancia Backend
 
 on:
   push:
-    paths:
-      - 'backend/**'  # Ejecutar solo si hay cambios en la carpeta "backend"
     branches:
-      - "main"  # Cambiado de master a main
+      - "main"
   pull_request:
-    paths:
-      - 'backend/**'  # Lo mismo para pull requests
     branches:
-      - "main"  # Cambiado de master a main
-    
+      - "main"
 
 jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+        defaults:
+      run:
+        working-directory: ./backend
 
     steps:
       # 1. Checkout del código fuente
